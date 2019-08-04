@@ -1,0 +1,1 @@
+ gcc -o udpdhct -I../../../include ./main.c -luv -lpthread -L../../../.libs/ -Wl,-rpath=.
