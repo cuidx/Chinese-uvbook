@@ -1,1 +1,6 @@
+ 编译linux下demo代码
  gcc -o udpdhct -I../../../include ./main.c -luv -lpthread -L../../../.libs/ -Wl,-rpath=.
+ 
+ 编译windows版libuv
+ vcbuild.bat shared
+ vcbuild.bat [debug/release] [test/bench] [clean] [noprojgen] [nobuild] [vs2017] [x86/x64] [static/shared]
