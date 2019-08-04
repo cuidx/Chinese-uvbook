@@ -481,6 +481,21 @@ struct child_worker {
 
 ```c
 void setup_workers() {
+    size_t path_size = 500;
+	uv_exepath(worker_path, &path_size);
+#ifdef WIN32
+	strcpy(worker_path + (strlen(worker_path) - strlen("multi-echo-server.exe")), "worker.exe");
+#else
+    strcpy(worker_path + (strlen(worker_path) - strlen("multi-echo-server")), "worker");
+#endif
+	fprintf(stderr, "Worker path: %s\n", worker_path);
+
+	char* args[2];
+	args[0] = worker_path;
+	args[1] = NULL;
+
+	round_robin_counter = 0;
+
     round_robin_counter = 0;
 
     // ...
@@ -499,7 +514,7 @@ void setup_workers() {
         uv_pipe_init(loop, &worker->pipe, 1);
 
         uv_stdio_container_t child_stdio[3];
-        child_stdio[0].flags = UV_CREATE_PIPE | UV_READABLE_PIPE;
+        child_stdio[0].flags = (uv_stdio_flags)(UV_CREATE_PIPE | UV_READABLE_PIPE | UV_WRITABLE_PIPE); //windows 上需要改一下，否则work进程起来之后直接退出了，原因是 uv_pipe_open 里判断管道只有读权限，没有写权限，直接返回失败了
         child_stdio[0].data.stream = (uv_stream_t*) &worker->pipe;
         child_stdio[1].flags = UV_IGNORE;
         child_stdio[2].flags = UV_INHERIT_FD;
@@ -521,6 +536,7 @@ void setup_workers() {
 首先，我们使用酷炫的`uv_cpu_info`函数获取到当前的cpu的核心个数，所以我们也能启动一样数目的worker进程。再次强调一下，务必将`uv_pipe_init`的ipc参数设置为1。接下来，我们指定子进程的`stdin`是一个可读的管道（从子进程的角度来说）。接下来的一切就很直观了，worker进程被启动，等待着文件描述符被写入到他们的标准输入中。  
 
 在主进程的`on_new_connection`中，我们接收了client端的socket，然后把它传递给worker环中的下一个可用的worker进程。  
+
 
 #### multi-echo-server/main.c
 
@@ -547,5 +563,7 @@ void on_new_connection(uv_stream_t *server, int status) {
 ```
 
 `uv_write2`能够在所有的情形上做了一个很好的抽象，我们只需要将client作为一个参数即可完成传输。现在，我们的多进程echo服务器已经可以运转起来啦。  
+
+运行客户端测试代码方法，安装nodejs，命令行 node hammer.js
 
 感谢Kyle指出了`uv_write2`需要一个不为空的buffer。  
